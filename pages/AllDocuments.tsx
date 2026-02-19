@@ -18,6 +18,7 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
   const [statusFilter, setStatusFilter] = useState<string>('All Status');
   const [documents, setDocuments] = useState<PayrollDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [groupByMonth, setGroupByMonth] = useState(currentUser.role === UserRole.ADMIN); // Admin: default group by month
   
   // Bulk Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -103,6 +104,37 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
 
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  // Helper: Parse upload date and return month-year string
+  const getMonthYear = (uploadDate: string): string => {
+    try {
+      const date = new Date(uploadDate);
+      return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(date);
+    } catch {
+      return 'Unknown Date';
+    }
+  };
+
+  // Helper: Group documents by month
+  const groupDocsByMonth = (docs: PayrollDocument[]): Map<string, PayrollDocument[]> => {
+    const grouped = new Map<string, PayrollDocument[]>();
+    docs.forEach(doc => {
+      const month = getMonthYear(doc.uploadDate);
+      if (!grouped.has(month)) {
+        grouped.set(month, []);
+      }
+      grouped.get(month)!.push(doc);
+    });
+    
+    // Sort by month (newest first)
+    const sorted = new Map([...grouped.entries()].sort((a, b) => {
+      const dateA = new Date(a[1][0].uploadDate);
+      const dateB = new Date(b[1][0].uploadDate);
+      return dateB.getTime() - dateA.getTime();
+    }));
+    
+    return sorted;
+  };
 
   // --- Bulk Action Logic ---
 
@@ -399,9 +431,118 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
         </div>
       </div>
 
+      {/* View Toggle for Admins */}
+      {currentUser.role === UserRole.ADMIN && (
+        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">View:</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setGroupByMonth(false)}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                !groupByMonth
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              List View
+            </button>
+            <button
+              onClick={() => setGroupByMonth(true)}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                groupByMonth
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              📅 Grouped by Month
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Documents List */}
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 transition-colors">
-        <h3 className="font-bold text-slate-900 dark:text-white mb-6">Documents ({filteredDocs.length})</h3>
+        {groupByMonth && currentUser.role === UserRole.ADMIN ? (
+          // Month Grouped View
+          <>
+            <h3 className="font-bold text-slate-900 dark:text-white mb-6">Documents ({filteredDocs.length}) - Organized by Month</h3>
+            {isLoading && documents.length === 0 ? (
+              <div className="space-y-4">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="h-24 bg-slate-50 dark:bg-slate-800 rounded-xl animate-pulse"></div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {Array.from(groupDocsByMonth(filteredDocs)).map(([month, monthDocs]) => (
+                  <div key={month} className="border-l-4 border-blue-500 pl-4 py-2">
+                    <h4 className="text-lg font-bold text-blue-700 dark:text-blue-300 mb-3 flex items-center gap-2">
+                      📁 {month}
+                      <span className="text-sm font-normal bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                        {monthDocs.length} document{monthDocs.length !== 1 ? 's' : ''}
+                      </span>
+                    </h4>
+                    <div className="space-y-3">
+                      {monthDocs.map((doc) => {
+                        const isSelected = selectedIds.has(doc.id);
+                        return (
+                          <div 
+                            key={doc.id} 
+                            className={`flex flex-col lg:flex-row lg:items-center justify-between p-4 rounded-lg border transition-all gap-3 ${
+                              isSelected 
+                              ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800' 
+                              : 'bg-slate-50 dark:bg-slate-800/50 border-transparent hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/50 dark:hover:bg-blue-900/20'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <button 
+                                onClick={() => toggleSelectOne(doc.id)}
+                                className="mt-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare size={20} className="text-blue-600 dark:text-blue-400" />
+                                ) : (
+                                  <Square size={20} />
+                                )}
+                              </button>
+                              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white shrink-0">
+                                <FileText size={20} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h5 className="font-bold text-slate-900 dark:text-slate-200 line-clamp-1">{doc.title}</h5>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{doc.employeeName} • {doc.company}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between lg:justify-end gap-3 pl-13 lg:pl-0 flex-wrap">
+                              <div className="font-bold text-green-700 dark:text-green-400 text-sm">{CURRENCY_SYMBOL}{doc.amount.toLocaleString()}</div>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                doc.status === DocStatus.COMPLETE
+                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                  : doc.status === DocStatus.PROCESSED 
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' 
+                                  : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                              }`}>
+                                {doc.status}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {filteredDocs.length === 0 && (
+                  <div className="text-center py-12 text-slate-500 dark:text-slate-400">
+                    No documents found matching filters.
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          // List View
+          <>
+            <h3 className="font-bold text-slate-900 dark:text-white mb-6">Documents ({filteredDocs.length})</h3>
         
         {isLoading && documents.length === 0 ? (
             <div className="space-y-4">
@@ -518,6 +659,8 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
                 </div>
             )}
         </div>
+        )}
+          </>
         )}
       </div>
 
