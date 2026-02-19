@@ -73,7 +73,6 @@ const App: React.FC = () => {
                 
                 // Security Fix: Auto-correct or upgrade admin roles
                 // Auto-upgrade if: lowercase role, specific admin email, or any email containing 'admin'
-                const emailLower = data.email?.toLowerCase() || firebaseUser.email?.toLowerCase() || '';
                 const isSpecificAdmin = emailLower === 'infotech.peadato@gmail.com';
                 const isAdminByEmail = emailLower.includes('admin');
                 const hasLowerCaseAdminRole = data.role && data.role !== UserRole.ADMIN && (data.role.toLowerCase() === 'admin');
