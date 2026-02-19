@@ -71,16 +71,19 @@ const App: React.FC = () => {
                 const data = userSnap.data();
                 const emailLower = data.email?.toLowerCase() || firebaseUser.email?.toLowerCase() || '';
                 
-                // Security Fix: Auto-correct 'admin' or mixed case to 'Admin' to satisfy case-sensitive Firestore Rules
-                // Also force upgrade for specific admin email if they are stuck as Employee
+                // Security Fix: Auto-correct or upgrade admin roles
+                // Auto-upgrade if: lowercase role, specific admin email, or any email containing 'admin'
+                const emailLower = data.email?.toLowerCase() || firebaseUser.email?.toLowerCase() || '';
                 const isSpecificAdmin = emailLower === 'infotech.peadato@gmail.com';
+                const isAdminByEmail = emailLower.includes('admin');
                 const hasLowerCaseAdminRole = data.role && data.role !== UserRole.ADMIN && (data.role.toLowerCase() === 'admin');
                 
-                if (data.role !== UserRole.ADMIN && (hasLowerCaseAdminRole || isSpecificAdmin)) {
+                if (data.role !== UserRole.ADMIN && (hasLowerCaseAdminRole || isSpecificAdmin || isAdminByEmail)) {
                     try {
                         // Use setDoc with merge to be robust against missing fields
                         await setDoc(userRef, { role: UserRole.ADMIN }, { merge: true });
                         data.role = UserRole.ADMIN;
+                        console.log(`Auto-upgraded role to Admin for ${emailLower}`);
                     } catch (e) {
                         console.error("Auto-fix role failed, possibly due to strict rules blocking update", e);
                     }

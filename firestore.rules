@@ -39,10 +39,15 @@ service cloud.firestore {
       allow read: if request.auth != null && (resource.data.employeeId == request.auth.uid || isAdmin());
       // Admins can update (resolve/reply). Owners can update (reply).
       allow update: if request.auth != null && (isAdmin() || resource.data.employeeId == request.auth.uid);
-      // Admins can delete concerns
+      // Admins can delete concerns - check role directly or via email
       allow delete: if request.auth != null && (
-        isAdmin() || 
-        request.auth.token.email == 'infotech.peadato@gmail.com'
+        // Check if user has Admin role in database
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin') ||
+        // Or check specific super-admin email
+        request.auth.token.email == 'infotech.peadato@gmail.com' ||
+        // Or email contains admin (case insensitive)
+        request.auth.token.email.matches('(?i).*admin.*')
       );
     }
     
