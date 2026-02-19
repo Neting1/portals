@@ -146,9 +146,13 @@ const Concerns: React.FC<ConcernsProps> = ({ currentUser }) => {
         const concernRef = doc(db, 'concerns', id);
         await deleteDoc(concernRef);
         // The real-time listener will automatically update the UI
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error deleting concern:", error);
-        alert("Failed to delete ticket. You may not have permission.");
+        if (error.code === 'permission-denied') {
+            alert("Permission denied. You must be an admin to delete tickets. Please ensure your role is set to 'Admin' in the system.");
+        } else {
+            alert("Failed to delete ticket. Please try again.");
+        }
     }
   };
 

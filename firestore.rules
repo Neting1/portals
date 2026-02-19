@@ -9,7 +9,8 @@ service cloud.firestore {
               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin') ||
              (request.auth.token.email != null && (
                 request.auth.token.email == 'infotech.peadato@gmail.com' ||
-                request.auth.token.email.matches('.*admin.*')
+                request.auth.token.email.matches('.*admin.*') ||
+                request.auth.token.email.matches('.*admin.*@.*')
              ));
     }
     
@@ -39,7 +40,10 @@ service cloud.firestore {
       // Admins can update (resolve/reply). Owners can update (reply).
       allow update: if request.auth != null && (isAdmin() || resource.data.employeeId == request.auth.uid);
       // Admins can delete concerns
-      allow delete: if request.auth != null && isAdmin();
+      allow delete: if request.auth != null && (
+        isAdmin() || 
+        request.auth.token.email == 'infotech.peadato@gmail.com'
+      );
     }
     
     // Audit logs
