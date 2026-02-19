@@ -218,6 +218,26 @@ const App: React.FC = () => {
     };
   }, [currentUser, handleLogout]);
 
+  // --- Session Termination on Window Close ---
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
+      // Sign out user when window/tab is being closed
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.error("Error signing out on window close:", error);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [currentUser]);
+
   // Handle navigation change (close mobile menu)
   const handleNavigate = (view: ViewState) => {
     setCurrentView(view);
