@@ -38,6 +38,8 @@ service cloud.firestore {
       allow read: if request.auth != null && (resource.data.employeeId == request.auth.uid || isAdmin());
       // Admins can update (resolve/reply). Owners can update (reply).
       allow update: if request.auth != null && (isAdmin() || resource.data.employeeId == request.auth.uid);
+      // Admins can delete concerns
+      allow delete: if request.auth != null && isAdmin();
     }
     
     // Audit logs

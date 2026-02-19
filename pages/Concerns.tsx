@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, CheckCircle, Clock, Send, AlertCircle, AlertTriangle, User as UserIcon, CornerDownRight, Shield } from 'lucide-react';
+import { MessageSquare, CheckCircle, Clock, Send, AlertCircle, AlertTriangle, User as UserIcon, CornerDownRight, Shield, Trash2 } from 'lucide-react';
 import { User, UserRole, Concern, ConcernResponse } from '../types';
 import { db } from '../utils/firebase';
-import { collection, addDoc, getDocs, doc, updateDoc, query, where, arrayUnion, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, updateDoc, query, where, arrayUnion, onSnapshot, deleteDoc } from 'firebase/firestore';
 
 interface ConcernsProps {
   currentUser: User;
@@ -134,6 +134,21 @@ const Concerns: React.FC<ConcernsProps> = ({ currentUser }) => {
     } catch (error) {
         console.error("Error resolving concern:", error);
         alert("Failed to update ticket status. You may not have permission.");
+    }
+  };
+
+  const handleDeleteConcern = async (id: string, subject: string) => {
+    if (!window.confirm(`Are you sure you want to delete the ticket "${subject}"? This action cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        const concernRef = doc(db, 'concerns', id);
+        await deleteDoc(concernRef);
+        // The real-time listener will automatically update the UI
+    } catch (error) {
+        console.error("Error deleting concern:", error);
+        alert("Failed to delete ticket. You may not have permission.");
     }
   };
 
@@ -337,15 +352,27 @@ const Concerns: React.FC<ConcernsProps> = ({ currentUser }) => {
                                 </p>
                             </div>
 
-                            {concern.status === 'Open' && currentUser.role === UserRole.ADMIN && (
-                                <button 
-                                onClick={() => handleResolve(concern.id)}
-                                className="shrink-0 flex items-center gap-1 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-700 dark:text-green-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-green-200 dark:border-green-800"
-                                >
-                                <CheckCircle size={14} />
-                                <span className="hidden sm:inline">Mark Resolved</span>
-                                <span className="sm:hidden">✓</span>
-                                </button>
+                            {currentUser.role === UserRole.ADMIN && (
+                                <div className="shrink-0 flex items-center gap-2">
+                                    {concern.status === 'Open' && (
+                                        <button 
+                                        onClick={() => handleResolve(concern.id)}
+                                        className="flex items-center gap-1 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 text-green-700 dark:text-green-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-green-200 dark:border-green-800"
+                                        title="Mark as Resolved"
+                                        >
+                                        <CheckCircle size={14} />
+                                        <span className="hidden sm:inline">Resolve</span>
+                                        </button>
+                                    )}
+                                    <button 
+                                    onClick={() => handleDeleteConcern(concern.id, concern.subject)}
+                                    className="flex items-center gap-1 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-700 dark:text-red-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-red-200 dark:border-red-800"
+                                    title="Delete ticket"
+                                    >
+                                    <Trash2 size={14} />
+                                    <span className="hidden sm:inline">Delete</span>
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>
