@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Download, FileText, Search, Eye, RefreshCw, CheckSquare, Square, CheckCircle2, X } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Search, Eye, RefreshCw, CheckSquare, Square, CheckCircle2, X, Trash2 } from 'lucide-react';
 import { CURRENCY_SYMBOL } from '../constants';
 import { DocStatus, DocType, User, UserRole, PayrollDocument } from '../types';
 import { db } from '../utils/firebase';
-import { collection, getDocs, query, writeBatch, doc, updateDoc, collectionGroup } from 'firebase/firestore';
+import { collection, getDocs, query, writeBatch, doc, updateDoc, collectionGroup, deleteDoc } from 'firebase/firestore';
+import { storage } from '../utils/firebase';
+import { ref, deleteObject } from 'firebase/storage';
 
 interface AllDocumentsProps {
     onBack: () => void;
@@ -192,6 +194,70 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
     } catch (error) {
         console.error("Bulk update failed:", error);
         alert("Failed to update documents. Please check your connection.");
+    } finally {
+        setIsBulkProcessing(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    const docItem = documents.find(d => d.id === docId);
+    if (!docItem) return;
+
+    if (!window.confirm(`Are you sure you want to delete "${docItem.title}"? This action cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        // 1. Delete file from Storage if path exists
+        if (docItem.storagePath) {
+            try {
+                const fileRef = ref(storage, docItem.storagePath);
+                await deleteObject(fileRef);
+            } catch (storageError: any) {
+                // If storage file doesn't exist, continue with Firestore deletion
+                if (storageError.code !== 'storage/object-not-found') {
+                    console.warn('Storage deletion warning:', storageError);
+                }
+            }
+        }
+
+        // 2. Delete Firestore document
+        const docRef = doc(db, 'users', docItem.employeeId, 'documents', docId);
+        await deleteDoc(docRef);
+
+        // 3. Optimistic UI Update
+        setDocuments(prev => prev.filter(d => d.id !== docId));
+        
+        // Remove from selection if selected
+        const newSet = new Set(selectedIds);
+        newSet.delete(docId);
+        setSelectedIds(newSet);
+
+    } catch (error) {
+        console.error("Delete failed:", error);
+        alert("Failed to delete document. Please check your connection.");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} document(s)? This action cannot be undone.`)) {
+        return;
+    }
+
+    setIsBulkProcessing(true);
+
+    try {
+        const deletePromises = Array.from(selectedIds).map(id => handleDeleteDocument(id));
+        await Promise.all(deletePromises);
+        
+        // Clear selection
+        setSelectedIds(new Set());
+
+    } catch (error) {
+        console.error("Bulk delete failed:", error);
+        alert("Failed to delete some documents. Please try again.");
     } finally {
         setIsBulkProcessing(false);
     }
@@ -409,7 +475,7 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
                     </div>
                 </div>
                 
-                <div className="flex items-center justify-between lg:justify-end gap-6 pl-16 lg:pl-0 mt-2 lg:mt-0">
+                <div className="flex items-center justify-between lg:justify-end gap-3 pl-16 lg:pl-0 mt-2 lg:mt-0 flex-wrap">
                     <div className="font-bold text-green-700 dark:text-green-400 text-lg">{CURRENCY_SYMBOL}{doc.amount.toLocaleString()}</div>
                     
                     {doc.fileUrl ? (
@@ -428,6 +494,17 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
                         <button disabled className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-lg text-sm font-medium cursor-not-allowed">
                             <Eye size={16} />
                             Preview
+                        </button>
+                    )}
+
+                    {currentUser.role === UserRole.ADMIN && (
+                        <button
+                            onClick={() => handleDeleteDocument(doc.id)}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg text-sm font-medium transition-colors"
+                            title="Delete document"
+                        >
+                            <Trash2 size={16} />
+                            <span className="hidden sm:inline">Delete</span>
                         </button>
                     )}
                 </div>
@@ -454,7 +531,7 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
                   <span>Selected</span>
               </div>
               
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
                   <button 
                     onClick={handleBulkExport}
                     className="flex items-center gap-2 hover:text-blue-400 transition-colors"
@@ -463,18 +540,32 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
                       Export CSV
                   </button>
                   {currentUser.role === UserRole.ADMIN && (
-                    <button 
-                        onClick={handleBulkMarkProcessed}
-                        disabled={isBulkProcessing}
-                        className="flex items-center gap-2 hover:text-green-400 transition-colors disabled:opacity-50"
-                    >
-                        {isBulkProcessing ? (
-                            <RefreshCw size={18} className="animate-spin" />
-                        ) : (
-                            <CheckCircle2 size={18} />
-                        )}
-                        Mark Processed
-                    </button>
+                    <>
+                      <button 
+                          onClick={handleBulkMarkProcessed}
+                          disabled={isBulkProcessing}
+                          className="flex items-center gap-2 hover:text-green-400 transition-colors disabled:opacity-50"
+                      >
+                          {isBulkProcessing ? (
+                              <RefreshCw size={18} className="animate-spin" />
+                          ) : (
+                              <CheckCircle2 size={18} />
+                          )}
+                          Mark Processed
+                      </button>
+                      <button 
+                          onClick={handleBulkDelete}
+                          disabled={isBulkProcessing}
+                          className="flex items-center gap-2 hover:text-red-400 transition-colors disabled:opacity-50"
+                      >
+                          {isBulkProcessing ? (
+                              <RefreshCw size={18} className="animate-spin" />
+                          ) : (
+                              <Trash2 size={18} />
+                          )}
+                          Delete
+                      </button>
+                    </>
                   )}
               </div>
 
