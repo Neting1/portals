@@ -438,6 +438,27 @@ const UploadDocuments: React.FC<UploadDocumentsProps> = ({ onBack, onNavigate, c
     });
   };
 
+  // Helper: Convert payroll period (e.g. "Feb 2026") to a date string
+  const getPeriodDateString = (payload: any): string => {
+      try {
+          const { payrollPeriod } = payload;
+          if (!payrollPeriod || payrollPeriod === 'N/A') {
+              return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          }
+          // Parse period like "Feb 2026" -> first day of that month
+          const [monthStr, yearStr] = payrollPeriod.trim().split(/\s+/);
+          if (monthStr && yearStr) {
+              const monthDate = new Date(`${monthStr} 1, ${yearStr}`);
+              if (!isNaN(monthDate.getTime())) {
+                  return monthDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              }
+          }
+      } catch (e) {
+          console.warn("Period parsing failed, using current date", e);
+      }
+      return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
   const analyzeFile = async (docId: string, file: File) => {
       try {
         const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
@@ -680,7 +701,7 @@ const UploadDocuments: React.FC<UploadDocumentsProps> = ({ onBack, onNavigate, c
                     employeeId: docItem.isManualEntry ? 'unknown' : (selectedUser?.id || 'unknown'), 
                     employeeName: docItem.isManualEntry ? docItem.manualName : (selectedUser?.name || 'Unknown'),
                     employeeEmail: docItem.isManualEntry ? docItem.manualEmail : (selectedUser?.email || ''),
-                    uploadDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    uploadDate: getPeriodDateString({ payrollPeriod: docItem.period || 'N/A' }),
                     payrollPeriod: docItem.period || 'N/A',
                     amount: parseFloat(docItem.amount) || 0,
                     status: DocStatus.PROCESSED,

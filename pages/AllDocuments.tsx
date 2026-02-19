@@ -106,7 +106,18 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
   });
 
   // Helper: Parse upload date and return month-year string
-  const getMonthYear = (uploadDate: string): string => {
+  const getMonthYear = (uploadDate: string, payrollPeriod?: string): string => {
+    // Priority 1: Use payroll period if available (e.g. "Feb 2026")
+    if (payrollPeriod && payrollPeriod !== 'N/A') {
+      try {
+        // payrollPeriod is already in format "Month Year"
+        return payrollPeriod;
+      } catch (e) {
+        console.warn("Payroll period parsing failed");
+      }
+    }
+    
+    // Fallback: Parse upload date
     try {
       const date = new Date(uploadDate);
       return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(date);
@@ -119,17 +130,17 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
   const groupDocsByMonth = (docs: PayrollDocument[]): Map<string, PayrollDocument[]> => {
     const grouped = new Map<string, PayrollDocument[]>();
     docs.forEach(doc => {
-      const month = getMonthYear(doc.uploadDate);
+      const month = getMonthYear(doc.uploadDate, doc.payrollPeriod);
       if (!grouped.has(month)) {
         grouped.set(month, []);
       }
       grouped.get(month)!.push(doc);
     });
     
-    // Sort by month (newest first)
+    // Sort by month (newest first) based on date
     const sorted = new Map([...grouped.entries()].sort((a, b) => {
-      const dateA = new Date(a[1][0].uploadDate);
-      const dateB = new Date(b[1][0].uploadDate);
+      const dateA = new Date(`${a[1][0].payrollPeriod || a[1][0].uploadDate}`);
+      const dateB = new Date(`${b[1][0].payrollPeriod || b[1][0].uploadDate}`);
       return dateB.getTime() - dateA.getTime();
     }));
     
