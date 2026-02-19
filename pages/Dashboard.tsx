@@ -43,6 +43,40 @@ const parseAmount = (val: any): number => {
     return 0;
 };
 
+// Helper: Get month-year from payroll period or upload date
+const getMonthYear = (uploadDate: string, payrollPeriod?: string): string => {
+  if (payrollPeriod && payrollPeriod !== 'N/A') {
+    return payrollPeriod;
+  }
+  try {
+    const date = new Date(uploadDate);
+    return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(date);
+  } catch {
+    return 'Unknown Date';
+  }
+};
+
+// Helper: Group documents by month
+const groupDocsByMonth = (docs: PayrollDocument[]): Map<string, PayrollDocument[]> => {
+  const grouped = new Map<string, PayrollDocument[]>();
+  docs.forEach(doc => {
+    const month = getMonthYear(doc.uploadDate, doc.payrollPeriod);
+    if (!grouped.has(month)) {
+      grouped.set(month, []);
+    }
+    grouped.get(month)!.push(doc);
+  });
+  
+  // Sort by month (newest first)
+  const sorted = new Map([...grouped.entries()].sort((a, b) => {
+    const dateA = new Date(`${a[1][0].payrollPeriod || a[1][0].uploadDate}`);
+    const dateB = new Date(`${b[1][0].payrollPeriod || b[1][0].uploadDate}`);
+    return dateB.getTime() - dateA.getTime();
+  }));
+  
+  return sorted;
+};
+
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate, currentUser }) => {
   const [documents, setDocuments] = useState<PayrollDocument[]>([]);
   const [employeesCount, setEmployeesCount] = useState(0);
@@ -235,63 +269,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, currentUser }) => {
                  ))}
             </div>
         ) : (
-        <div className="space-y-4">
-          {documents.slice(0, 5).map((doc) => (
-            <div key={doc.id} className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-transparent hover:border-blue-100 dark:hover:border-blue-800 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
-                  <FileText size={20} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 dark:text-slate-200 line-clamp-1">{doc.title}</h4>
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                    {currentUser.role === UserRole.ADMIN && (
-                        <>
-                            <span className="font-medium text-blue-600 dark:text-blue-400">{doc.employeeName}</span>
-                            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-                        </>
-                    )}
-                    <span>{doc.uploadDate}</span>
-                    <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{CURRENCY_SYMBOL}{doc.amount.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between sm:justify-end gap-4 pl-14 sm:pl-0">
-                <span className={`px-2.5 py-1 rounded text-xs font-semibold capitalize ${
-                  doc.status === DocStatus.COMPLETE
-                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                    : doc.status === DocStatus.PROCESSED 
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' 
-                    : doc.status === DocStatus.PENDING 
-                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
-                      : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                }`}>
-                  {doc.status}
-                </span>
-                {doc.fileUrl ? (
-                    <a 
-                      href={doc.fileUrl} 
-                      onClick={() => handleDownload(doc)}
-                      download={`${doc.title}.pdf`}
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="p-2 text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-full transition-colors"
-                      title="Download PDF"
-                    >
-                      <Download size={18} />
-                    </a>
-                ) : (
-                    <button className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors" disabled>
-                      <Eye size={18} />
-                    </button>
-                )}
-              </div>
-            </div>
-          ))}
-          
-          {documents.length === 0 && (
+        <div className="space-y-6">
+          {documents.length === 0 ? (
               <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                   {isLoading ? 'Loading...' : (
                       <>
@@ -305,6 +284,70 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate, currentUser }) => {
                       </>
                   )}
               </div>
+          ) : (
+              Array.from(groupDocsByMonth(documents.slice(0, 10))).map(([month, monthDocs]) => (
+                <div key={month}>
+                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                    📅 {month}
+                  </h4>
+                  <div className="space-y-3">
+                    {monthDocs.map((doc) => (
+                      <div key={doc.id} className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-transparent hover:border-blue-100 dark:hover:border-blue-800 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
+                            <FileText size={20} />
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-slate-900 dark:text-slate-200 line-clamp-1">{doc.title}</h5>
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                              {currentUser.role === UserRole.ADMIN && (
+                                  <>
+                                      <span className="font-medium text-blue-600 dark:text-blue-400">{doc.employeeName}</span>
+                                      <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                                  </>
+                              )}
+                              <span>{doc.payrollPeriod || doc.uploadDate}</span>
+                              <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                              <span className="font-medium text-slate-700 dark:text-slate-300">{CURRENCY_SYMBOL}{doc.amount.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between sm:justify-end gap-4 pl-14 sm:pl-0">
+                          <span className={`px-2.5 py-1 rounded text-xs font-semibold capitalize ${
+                            doc.status === DocStatus.COMPLETE
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                              : doc.status === DocStatus.PROCESSED 
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' 
+                              : doc.status === DocStatus.PENDING 
+                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                                : 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                          }`}>
+                            {doc.status}
+                          </span>
+                          {doc.fileUrl ? (
+                              <a 
+                                href={doc.fileUrl} 
+                                onClick={() => handleDownload(doc)}
+                                download={`${doc.title}.pdf`}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="p-2 text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-full transition-colors"
+                                title="Download PDF"
+                              >
+                                <Download size={18} />
+                              </a>
+                          ) : (
+                              <button className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors" disabled>
+                                <Eye size={18} />
+                              </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
           )}
         </div>
         )}

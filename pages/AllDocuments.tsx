@@ -18,7 +18,7 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
   const [statusFilter, setStatusFilter] = useState<string>('All Status');
   const [documents, setDocuments] = useState<PayrollDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [groupByMonth, setGroupByMonth] = useState(currentUser.role === UserRole.ADMIN); // Admin: default group by month
+  const [groupByMonth, setGroupByMonth] = useState(true); // Default: group by month for all users
   
   // Bulk Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -442,41 +442,39 @@ const AllDocuments: React.FC<AllDocumentsProps> = ({ onBack, currentUser }) => {
         </div>
       </div>
 
-      {/* View Toggle for Admins */}
-      {currentUser.role === UserRole.ADMIN && (
-        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">View:</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setGroupByMonth(false)}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                !groupByMonth
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              List View
-            </button>
-            <button
-              onClick={() => setGroupByMonth(true)}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                groupByMonth
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              📅 Grouped by Month
-            </button>
-          </div>
+      {/* View Toggle for All Users */}
+      <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+        <span className="text-sm font-medium text-blue-900 dark:text-blue-100">View:</span>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setGroupByMonth(false)}
+            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              !groupByMonth
+                ? 'bg-blue-600 text-white'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            List View
+          </button>
+          <button
+            onClick={() => setGroupByMonth(true)}
+            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              groupByMonth
+                ? 'bg-blue-600 text-white'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            📅 Grouped by Month
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Documents List */}
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 p-6 transition-colors">
-        {groupByMonth && currentUser.role === UserRole.ADMIN ? (
+        {groupByMonth ? (
           // Month Grouped View
           <>
-            <h3 className="font-bold text-slate-900 dark:text-white mb-6">Documents ({filteredDocs.length}) - Organized by Month</h3>
+            <h3 className="font-bold text-slate-900 dark:text-white mb-6">Documents ({filteredDocs.length}) - {currentUser.role === UserRole.ADMIN ? 'Organized by Month' : 'My Payslips by Month'}</h3>
             {isLoading && documents.length === 0 ? (
               <div className="space-y-4">
                 {[1,2,3,4].map(i => (
