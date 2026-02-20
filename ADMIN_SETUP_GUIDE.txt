@@ -1,0 +1,396 @@
+================================================================================
+                    ADMIN COLLECTION SETUP GUIDE
+                    For Firestore Database
+                          February 20, 2026
+================================================================================
+
+OVERVIEW
+================================================================================
+
+Since email-based admin assignment has been removed from the security rules,
+you need to explicitly manage admins in a dedicated Firestore collection called /admins.
+
+This guide walks through the setup and management of this collection.
+
+
+STEP 1: CREATE THE ADMINS COLLECTION
+================================================================================
+
+In Firebase Console:
+
+1. Go to Firestore Database
+2. Click "Start Collection"
+3. Collection name: "admins"
+4. Click "Add document"
+
+You can leave auto-ID selected. We'll use the user ID as the document ID.
+
+
+STEP 2: ADD YOUR FIRST ADMIN
+================================================================================
+
+To add your first admin user:
+
+1. Get the user ID:
+   • Go to Authentication
+   • Find the login user email
+   • Copy their UID (not the email)
+   
+   Example UID: "FqQvVWXYZabc123defghij"
+
+2. In Firestore, create a document:
+   Collection: admins
+   Document ID: FqQvVWXYZabc123defghij (the user ID)
+   
+   Fields:
+   {
+     "userId": "FqQvVWXYZabc123defghij",
+     "email": "user@company.com",
+     "grantedBy": "system",
+     "grantedAt": (current timestamp),
+     "status": "active",
+     "reason": "Initial admin account"
+   }
+
+3. Click "Save"
+
+Your user should now have admin access!
+
+
+STEP 3: VERIFY ADMIN ACCESS
+================================================================================
+
+Test that the admin user can:
+
+1. Access "Manage Users" page
+2. See all users in the system
+3. Upload documents
+4. Delete/modify other users' documents (if needed)
+5. See "Concerns" and respond as admin
+
+If not working:
+• Clear browser cache
+• Log out and log back in
+• Check browser console for errors
+• Check Firestore rules are deployed
+
+
+STEP 4: UPDATE FIRESTORE SECURITY RULES
+================================================================================
+
+The rules file needs to be updated to check the /admins collection:
+
+Update firestore.rules with:
+
+  function isAdmin() {
+    return request.auth.uid != null && 
+           exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.status == 'active';
+  }
+
+This checks:
+• User is authenticated
+• User ID exists in /admins collection
+• Status is 'active' (allows disabling without deletion)
+
+Deploy the updated rules to Firebase.
+
+
+STEP 5: GRANT ADMIN ACCESS TO OTHER USERS
+================================================================================
+
+Process for adding more admins:
+
+1. Get their User ID from Firebase Authentication
+2. In Firestore, create document in /admins collection:
+
+   Collection: admins
+   Document ID: (their user ID)
+   
+   {
+     "userId": "their_user_id",
+     "email": "newadmin@company.com",
+     "grantedBy": "self|original_admin@company.com",
+     "grantedAt": (current timestamp),
+     "status": "active",
+     "reason": "Promoted to admin for X reason"
+   }
+
+3. User logs out and back in
+4. They should now have admin access
+
+
+STEP 6: REVOKE ADMIN ACCESS
+================================================================================
+
+To remove admin access:
+
+Method 1: Delete the document
+  • Open /admins collection
+  • Find the user's document
+  • Click "Delete"
+  • Access revoked immediately
+
+Method 2: Change status to inactive (better for audit trail)
+  • Open /admins collection
+  • Find the user's document
+  • Edit "status" field from "active" to "inactive"
+  • Access revoked immediately
+
+Example after removing access:
+  {
+    "userId": "user_id",
+    "email": "formeradmin@company.com",
+    "grantedBy": "system",
+    "grantedAt": Timestamp(...),
+    "status": "inactive",  // ← Changed
+    "revokedAt": (new timestamp),  // ← Add new field
+    "revokedBy": "current_user@company.com",  // ← Add new field
+    "revokedReason": "Employee termination"
+  }
+
+
+STEP 7: AUDIT TRAIL & TRACKING
+================================================================================
+
+The /admins collection serves as your audit trail. Each document contains:
+
+• userId: Which user is an admin
+• email: Their email (for human readability)
+• grantedBy: Who granted the access (or "system" for initial)
+• grantedAt: When access was granted
+• status: Current status (active/inactive)
+• reason: Why they were promoted
+
+For revoked admins, add fields:
+• revokedAt: When access was removed
+• revokedBy: Which admin removed them
+• revokedReason: Why access was removed
+
+This creates a complete audit trail of all admin changes.
+
+
+EXAMPLE ADMIN COLLECTION
+================================================================================
+
+Here's what a healthy /admins collection looks like:
+
+/admins
+├─ abc123def456
+│  └─ {
+│       userId: "abc123def456",
+│       email: "admin1@company.com",
+│       grantedBy: "system",
+│       grantedAt: Timestamp(Feb 20, 2026, 9:00 AM),
+│       status: "active",
+│       reason: "Initial admin setup"
+│     }
+│
+├─ ghi789jkl012
+│  └─ {
+│       userId: "ghi789jkl012",
+│       email: "admin2@company.com",
+│       grantedBy: "admin1@company.com",
+│       grantedAt: Timestamp(Feb 21, 2026, 10:30 AM),
+│       status: "active",
+│       reason: "Manager - document approval"
+│     }
+│
+└─ mno345pqr678
+   └─ {
+        userId: "mno345pqr678",
+        email: "former.admin@company.com",
+        grantedBy: "system",
+        grantedAt: Timestamp(Jan 1, 2026, 1:00 PM),
+        status: "inactive",
+        revokedAt: Timestamp(Feb 22, 2026, 2:00 PM),
+        revokedBy: "admin1@company.com",
+        revokedReason: "Employee terminated"
+      }
+
+
+MANAGING ADMINS VIA FIREBASE CONSOLE
+================================================================================
+
+From Firebase Console (manual process):
+
+1. Open Firestore Database
+2. Open "admins" collection
+3. To add an admin:
+   • Click "Add document"
+   • Set document ID to user's UID
+   • Add fields as shown in Step 2
+
+4. To remove an admin:
+   • Open the document
+   • Click "Delete"
+   OR
+   • Edit "status" field to "inactive"
+
+5. To view admin history:
+   • All changes show in "Activity" tab
+   • Timestamps show when each edit was made
+
+
+BEST PRACTICES
+================================================================================
+
+1. ✓ Audit Trail
+   - Always fill "grantedBy" field (who approved the access)
+   - Always fill "reason" field (why this person is admin)
+   - When revoking, add revokedBy, revokedAt, revokedReason
+
+2. ✓ Status vs Delete
+   - Use "status": "inactive" instead of deleting
+   - Keeps audit trail intact
+   - Allows quick re-activation if needed
+
+3. ✓ Email For Reference
+   - Always include email field
+   - Easier than looking up user ID in Auth
+   - Helps with audit trail readability
+
+4. ✓ Regular Reviews
+   - Quarterly: Review all active admins
+   - Verify each admin still needs access
+   - Document reason for each admin
+
+5. ✓ Principle of Least Privilege
+   - Only promote to admin if essential
+   - Use least-permissive role needed
+   - Consider document-level permissions instead of full admin
+
+6. ✓ Access Removal
+   - Remove admin access when person leaves role
+   - Don't delete - keep audit trail
+   - Consider 2-admin approval for sensitive revokes
+
+
+TROUBLESHOOTING
+================================================================================
+
+Problem: User doesn't have admin access after being added to /admins
+
+Solution:
+1. Check document has correct user ID as document ID
+2. Check status field is "active"
+3. Check Firestore rules are updated and deployed
+4. Have user logout completely and log back in
+5. Clear browser cookies/cache
+6. Check console for error messages
+
+Problem: Admin access not working after rule changes
+
+Solution:
+1. Go to Firestore Rules tab
+2. Click "Publish" button to deploy changes
+3. Wait 1-2 minutes for deployment
+4. Test in incognito window to avoid cache
+
+Problem: Can't remember which users are admins
+
+Solution:
+1. Open Firestore Database → admins collection
+2. Filter by: status == "active"
+3. See all current admins
+
+Problem: Former employee still showing in audit trail
+
+Solution:
+1. This is by design - keep audit trail
+2. Their status is "inactive"
+3. If needed to delete: request from security team with business justification
+
+
+INTEGRATION WITH BACKEND API (Future)
+================================================================================
+
+When implementing backend admin management API, endpoints should:
+
+POST /api/admin/grant
+  - Require authenticated admin user
+  - Validate target user exists
+  - Create /admins/{targetUserId} document
+  - Log to /audit_logs collection
+  - Return confirmation
+
+POST /api/admin/revoke
+  - Require authenticated admin user
+  - Set status to "inactive"
+  - Add revokedAt, revokedBy, revokedReason
+  - Log to /audit_logs collection
+  - Return confirmation
+
+GET /api/admin/list
+  - Require authenticated admin user
+  - Return all /admins/{userId} where status == 'active'
+  - Include email and grantedAt timestamps
+
+
+SECURITY NOTES
+================================================================================
+
+This system is secure because:
+
+1. No hardcoded values in Firestore rules
+2. Every admin is explicitly granted
+3. Full audit trail of who, when, why
+4. Easy to revoke without deleting data
+5. Status flag allows quick disable
+6. Requires authenticated user to access Firestore
+
+Remaining Manual Step:
+• Creating /admins documents is manual via Firebase Console
+• TODO: Implement backend API for automated admin management
+• TODO: Implement admin approval workflow for new admin requests
+
+
+TESTING CHECKLIST
+================================================================================
+
+Before going live:
+
+☐ Create test admin user in /admins
+☐ Verify they get admin access (refresh page)
+☐ Verify non-admin cannot see admin features
+☐ Change status to "inactive" and verify access removed
+☐ Change status back to "active" and verify access restored
+☐ Delete the /admins document and verify access removed
+☐ Create new document and verify access regained
+☐ Check Firestore rules are checking /admins collection
+☐ Test with multiple admin users
+☐ Test from different browsers/devices
+
+
+DOCUMENTATION TO UPDATE
+================================================================================
+
+Admin team needs to know:
+
+1. How to grant admin access (Step 5)
+2. How to revoke admin access (Step 6)
+3. Where to view audit trail (Step 7)
+4. Emergency contact if locked out
+5. Audit requirements for admin changes
+
+
+EMERGENCY RECOVERY
+================================================================================
+
+If locked out (no active admins):
+
+1. Contact Firebase support
+2. Provide business justification
+3. They can verify project ownership
+4. They can add admin via console
+5. Alternative: Restore from backup
+
+Prevention is better:
+• Always have at least 2 active admins
+• Contact info on file for all admins
+• Document admin succession plan
+
+
+================================================================================
+END OF ADMIN SETUP GUIDE
+================================================================================
