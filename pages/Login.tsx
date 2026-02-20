@@ -86,6 +86,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // SECURITY FIX: Rate limiting for authentication attempts
+  const [attemptCount, setAttemptCount] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const MAX_ATTEMPTS = 5;
+  const LOCKOUT_DURATION_MS = 60 * 1000; // 1 minute
 
   // Validators
   const validateEmail = (val: string) => {
@@ -96,7 +102,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
 
   const validatePassword = (val: string) => {
     if (!val) return 'Password is required';
-    if (view === 'signup' && val.length < 6) return 'Password must be at least 6 characters';
+    
+    if (view === 'signup') {
+      // SECURITY FIX: Strong password requirements
+      if (val.length < 12) return 'Password must be at least 12 characters';
+      if (!/[A-Z]/.test(val)) return 'Must contain at least one uppercase letter';
+      if (!/[a-z]/.test(val)) return 'Must contain at least one lowercase letter';
+      if (!/[0-9]/.test(val)) return 'Must contain at least one number';
+      if (!/[!@#$%^&*()_+=\-\[\]{};':"\\|,.<>?]/.test(val)) return 'Must contain a special character';
+      
+      // Check for common patterns
+      const commonPatterns = ['password', '123456', 'qwerty', 'letmein', 'admin'];
+      if (commonPatterns.some(p => val.toLowerCase().includes(p))) {
+        return 'Password contains a common pattern. Please choose a stronger password.';
+      }
+    }
+    
     return '';
   };
 
@@ -120,15 +141,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       
-      const emailLower = result.user.email?.toLowerCase() || '';
-      const isSpecificAdmin = emailLower === 'infotech.peadato@gmail.com';
-      const role = (emailLower.includes('admin') || isSpecificAdmin) ? UserRole.ADMIN : UserRole.EMPLOYEE;
-      
+      // SECURITY FIX: Do NOT assign role based on email
+      // Role must be set explicitly in database by admin
       const appUser: User = {
         id: result.user.uid,
         name: result.user.displayName || 'Google User',
         email: result.user.email || '',
-        role: role,
+        role: UserRole.EMPLOYEE, // Always default to EMPLOYEE
         joinedAt: new Date().toLocaleDateString(),
         docCount: 0,
         avatarUrl: result.user.photoURL || undefined
@@ -136,8 +155,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
       
       onLogin(appUser);
     } catch (error: any) {
-      console.error("Google Login Error:", error);
-      
       if (error.code === 'auth/unauthorized-domain') {
         setFormError('Domain unauthorized. Add this domain to Firebase Console > Auth > Settings.');
       } else if (error.code === 'auth/popup-closed-by-user') {
@@ -164,6 +181,21 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
 
     if (emailErr || passErr) return;
 
+    // SECURITY FIX: Rate limiting for login attempts
+    const now = Date.now();
+    if (lockoutUntil && now < lockoutUntil) {
+      const secondsRemaining = Math.ceil((lockoutUntil - now) / 1000);
+      setFormError(`Too many login attempts. Try again in ${secondsRemaining}s`);
+      return;
+    }
+
+    if (attemptCount >= MAX_ATTEMPTS) {
+      setAttemptCount(0);
+      setLockoutUntil(now + LOCKOUT_DURATION_MS);
+      setFormError('Too many login attempts. Account locked for 1 minute.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -174,28 +206,28 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
         await signOut(auth); // Prevent auto-login in App.tsx
         setPendingEmail(cleanEmail);
         setView('verify_email');
+        setAttemptCount(0); // Reset on successful verification step
+        setLockoutUntil(null);
         setIsLoading(false);
         return;
       }
 
-      const emailLower = userCredential.user.email?.toLowerCase() || '';
-      const isSpecificAdmin = emailLower === 'infotech.peadato@gmail.com';
-      const role = (emailLower.includes('admin') || isSpecificAdmin) ? UserRole.ADMIN : UserRole.EMPLOYEE;
-      
+      // SECURITY FIX: Do NOT assign role based on email
+      // Role comes from Firestore database only
       const appUser: User = {
         id: userCredential.user.uid,
         name: userCredential.user.displayName || cleanEmail.split('@')[0],
         email: userCredential.user.email || '',
-        role: role,
+        role: UserRole.EMPLOYEE, // Always default to EMPLOYEE, Firestore has actual role
         joinedAt: new Date().toLocaleDateString(),
         docCount: 0
       };
+      
+      setAttemptCount(0); // Reset on successful login
+      setLockoutUntil(null);
       onLogin(appUser);
     } catch (error: any) {
-      // Don't log expected validation errors to console
-      if (error.code !== 'auth/invalid-email' && error.code !== 'auth/invalid-credential') {
-        console.error("Login Error:", error.code);
-      }
+      setAttemptCount(prev => prev + 1);
       
       if (
         error.code === 'auth/invalid-credential' || 
@@ -238,22 +270,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
         displayName: cleanName
       });
 
-      // Create Firestore Document immediately with correct role
-      const emailLower = cleanEmail.toLowerCase();
-      const isSpecificAdmin = emailLower === 'infotech.peadato@gmail.com';
-      const initialRole = (emailLower.includes('admin') || isSpecificAdmin) ? UserRole.ADMIN : UserRole.EMPLOYEE;
-      
+      // SECURITY FIX: Do NOT assign role based on email
+      // All new users default to EMPLOYEE role
       try {
         await setDoc(doc(db, 'users', userCredential.user.uid), {
             name: cleanName,
             email: cleanEmail,
-            role: initialRole,
+            role: UserRole.EMPLOYEE, // Always default to EMPLOYEE
             joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
             docCount: 0,
             createdAt: serverTimestamp()
         });
       } catch (docError) {
-          console.error("Error creating user document:", docError);
           // Non-blocking error, App.tsx will attempt to recover if this fails
       }
 
@@ -267,7 +295,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
       setView('verify_email');
       
     } catch (error: any) {
-      console.error("Signup Error:", error.code);
       if (error.code === 'auth/email-already-in-use') {
         setFormError('User already exists. Please sign in');
       } else if (error.code === 'auth/invalid-email') {

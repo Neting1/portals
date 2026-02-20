@@ -69,25 +69,9 @@ const App: React.FC = () => {
              
              if (userSnap.exists()) {
                 const data = userSnap.data();
-                const emailLower = data.email?.toLowerCase() || firebaseUser.email?.toLowerCase() || '';
                 
-                // Security Fix: Auto-correct or upgrade admin roles
-                // Auto-upgrade if: lowercase role, specific admin email, or any email containing 'admin'
-                const isSpecificAdmin = emailLower === 'infotech.peadato@gmail.com';
-                const isAdminByEmail = emailLower.includes('admin');
-                const hasLowerCaseAdminRole = data.role && data.role !== UserRole.ADMIN && (data.role.toLowerCase() === 'admin');
-                
-                if (data.role !== UserRole.ADMIN && (hasLowerCaseAdminRole || isSpecificAdmin || isAdminByEmail)) {
-                    try {
-                        // Use setDoc with merge to be robust against missing fields
-                        await setDoc(userRef, { role: UserRole.ADMIN }, { merge: true });
-                        data.role = UserRole.ADMIN;
-                        console.log(`Auto-upgraded role to Admin for ${emailLower}`);
-                    } catch (e) {
-                        console.error("Auto-fix role failed, possibly due to strict rules blocking update", e);
-                    }
-                }
-
+                // SECURITY FIX: Do NOT auto-upgrade roles based on email
+                // Just use the role stored in the database
                 appUser = {
                   id: firebaseUser.uid,
                   name: data.name || firebaseUser.displayName || 'User',
@@ -102,18 +86,12 @@ const App: React.FC = () => {
              }
           } catch (dbError) {
              // If DB read fails (e.g. permission denied) or doc doesn't exist, fall back to Auth data
-             // and attempt to create/overwrite
-             const emailLower = firebaseUser.email?.toLowerCase() || '';
-             const isSpecificAdmin = emailLower === 'infotech.peadato@gmail.com';
-             const initialRole = (emailLower.includes('admin') || isSpecificAdmin)
-              ? UserRole.ADMIN 
-              : UserRole.EMPLOYEE;
-
+             // SECURITY FIX: Default to EMPLOYEE role, never ADMIN
              appUser = {
                 id: firebaseUser.uid,
                 name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
                 email: firebaseUser.email || '',
-                role: initialRole,
+                role: UserRole.EMPLOYEE, // Always default to EMPLOYEE
                 joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
                 docCount: 0,
                 avatarUrl: firebaseUser.photoURL || undefined
@@ -130,7 +108,7 @@ const App: React.FC = () => {
                     createdAt: serverTimestamp()
                  });
              } catch (writeError) {
-                 console.warn("Could not save user to Firestore (Permissions or Network)", writeError);
+                 // Error silently - Firestore rules may prevent this
              }
           }
 

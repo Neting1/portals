@@ -3,15 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // Helper function to check if user is admin
-    // Checks DB role OR hardcoded super-admin email OR any email containing 'admin'
+    // SECURITY FIX: Only checks explicit Admin role in database, removed email-based detection
     function isAdmin() {
-      return (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin') ||
-             (request.auth.token.email != null && (
-                request.auth.token.email == 'infotech.peadato@gmail.com' ||
-                request.auth.token.email.matches('.*admin.*') ||
-                request.auth.token.email.matches('.*admin.*@.*')
-             ));
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
     
     // Allow Admins to perform Collection Group queries on 'documents'
@@ -39,16 +34,8 @@ service cloud.firestore {
       allow read: if request.auth != null && (resource.data.employeeId == request.auth.uid || isAdmin());
       // Admins can update (resolve/reply). Owners can update (reply).
       allow update: if request.auth != null && (isAdmin() || resource.data.employeeId == request.auth.uid);
-      // Admins can delete concerns - check role directly or via email
-      allow delete: if request.auth != null && (
-        // Check if user has Admin role in database
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin') ||
-        // Or check specific super-admin email
-        request.auth.token.email == 'infotech.peadato@gmail.com' ||
-        // Or email contains admin (case insensitive)
-        request.auth.token.email.matches('(?i).*admin.*')
-      );
+      // Only admins can delete concerns
+      allow delete: if request.auth != null && isAdmin();
     }
     
     // Audit logs
