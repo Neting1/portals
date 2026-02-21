@@ -1,0 +1,424 @@
+================================================================================
+                    ENVIRONMENT VARIABLES SETUP GUIDE
+                    Hide API Keys from Source Code
+                          February 21, 2026
+================================================================================
+
+OVERVIEW
+================================================================================
+
+All sensitive authentication keys (Firebase, Google, etc.) are now moved from
+source code to environment variables. This prevents accidental exposure of
+API keys in git commits or code reviews.
+
+
+SECURITY CHANGES IMPLEMENTED
+================================================================================
+
+✅ Before (INSECURE):
+   • API keys hardcoded in utils/firebase.ts
+   • Keys visible in all code repositories
+   • Risk: Keys exposed in git history, GitHub, backups
+
+✅ After (SECURE):
+   • API keys in .env.local (not committed)
+   • Source code loads from import.meta.env.VITE_*
+   • Risk: Minimized - keys only on local machines and secure CI/CD
+
+
+FILES MODIFIED
+================================================================================
+
+1. .env.example (NEW)
+   • Template file showing required variables
+   • Committed to git (no secrets)
+   • Users copy to .env.local for their setup
+
+2. .env.local (UPDATED)
+   • Contains actual API keys
+   • Listed in .gitignore (never committed)
+   • Local machine only
+
+3. utils/firebase.ts (UPDATED)
+   • Loads config from import.meta.env.VITE_*
+   • Validates all required variables exist
+   • Throws error if variables missing
+
+4. vite.config.ts (UPDATED)
+   • Properly defines environment variables
+   • Makes variables accessible in React code
+   • Loads from .env files
+
+
+SETUP INSTRUCTIONS
+================================================================================
+
+For Developers:
+
+1. Copy .env.example to .env.local:
+   cp .env.example .env.local
+
+2. Update .env.local with your Firebase credentials:
+   VITE_FIREBASE_API_KEY=your_key_here
+   VITE_FIREBASE_AUTH_DOMAIN=your_domain_here
+   VITE_FIREBASE_PROJECT_ID=your_project_id_here
+   VITE_FIREBASE_STORAGE_BUCKET=your_bucket_here
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id_here
+   VITE_FIREBASE_APP_ID=your_app_id_here
+   VITE_GEMINI_API_KEY=your_gemini_key_here
+
+3. Start development:
+   npm run dev
+
+4. IMPORTANT: Never commit .env.local
+   (.gitignore automatically excludes it)
+
+
+FOR PRODUCTION DEPLOYMENT
+================================================================================
+
+Set environment variables via your deployment platform:
+
+Docker:
+  ENV VITE_FIREBASE_API_KEY=your_key
+  ENV VITE_FIREBASE_PROJECT_ID=your_project
+  # etc...
+
+GitHub Actions:
+  - name: Build
+    env:
+      VITE_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+    run: npm run build
+
+Vercel/Netlify:
+  1. Go to project settings
+  2. Add environment variables
+  3. Set VITE_FIREBASE_* variables
+  4. Redeploy
+
+Firebase Hosting:
+  1. Set in firebase.json or deployment config
+  2. Use build arguments: --env
+  3. Variables available during build
+
+
+ENVIRONMENT VARIABLES REFERENCE
+================================================================================
+
+Firebase Configuration:
+
+VITE_FIREBASE_API_KEY
+  • Your Firebase API key
+  • Used for authentication
+  • Find in: Firebase Console → Project Settings
+
+VITE_FIREBASE_AUTH_DOMAIN
+  • Firebase authentication domain
+  • Format: yourproject.firebaseapp.com
+  • Find in: Firebase Console → Project Settings
+
+VITE_FIREBASE_PROJECT_ID
+  • Firebase project ID
+  • Format: myproject-12345
+  • Find in: Firebase Console → Project Settings
+
+VITE_FIREBASE_STORAGE_BUCKET
+  • Cloud Storage bucket name
+  • Format: myproject.appspot.com
+  • Find in: Firebase Console → Storage
+
+VITE_FIREBASE_MESSAGING_SENDER_ID
+  • Firebase Cloud Messaging sender ID
+  • Find in: Firebase Console → Project Settings
+
+VITE_FIREBASE_APP_ID
+  • Firebase app ID
+  • Find in: Firebase Console → Project Settings
+
+Other APIs:
+
+VITE_GEMINI_API_KEY
+  • Google Gemini API key
+  • Used for AI features
+  • Find in: Google Cloud Console
+
+
+ACCESSING VARIABLES IN CODE
+================================================================================
+
+In TypeScript/React:
+
+// In utils/firebase.ts (already updated):
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  // etc...
+};
+
+// In other components:
+const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+const envMode = import.meta.env.MODE; // 'development' or 'production'
+
+// Check if in production:
+if (import.meta.env.PROD) {
+  // Production code
+}
+
+
+SECURITY BEST PRACTICES
+================================================================================
+
+DO:
+✅ Keep .env.local in .gitignore
+✅ Use strong API keys
+✅ Rotate keys periodically
+✅ Use different keys per environment (dev, staging, prod)
+✅ Delete compromised keys immediately
+✅ Document what each key is for
+✅ Use environment variables for ALL secrets
+✅ Check .env.local is never committed
+
+DON'T:
+❌ Commit .env.local to git
+❌ Share .env.local files via email/Slack
+❌ Use same keys across environments
+❌ Hardcode API keys anywhere
+❌ Log environment variables
+❌ Put secrets in comments
+❌ Display secrets in error messages
+
+
+TROUBLESHOOTING
+================================================================================
+
+Problem: "Firebase configuration is incomplete" error
+
+Solution:
+  1. Check .env.local exists in project root
+  2. Verify all VITE_FIREBASE_* variables are set
+  3. Check for typos in variable names (case-sensitive)
+  4. Restart dev server: npm run dev
+  5. Clear node_modules cache: rm -rf node_modules && npm install
+
+Problem: Variables show as "undefined"
+
+Solution:
+  1. Make sure you're using import.meta.env.VITE_* (not process.env)
+  2. Verify variable name starts with VITE_
+  3. Check vite.config.ts has proper define section
+  4. Restart dev server
+
+Problem: Works locally but fails in production
+
+Solution:
+  1. Check production environment variables are set
+  2. Verify VITE_ prefix is used
+  3. Check build doesn't have hardcoded fallbacks
+  4. Verify deployment platform has access to .env files
+
+
+CHECKING IF KEYS ARE EXPOSED
+================================================================================
+
+Search your git history for exposed keys:
+
+1. Search local repo:
+   git log -p -S "AIzaSy" | head -100
+   # Shows if any Firebase key in commit history
+
+2. Search global git config:
+   git config --list | grep -i auth
+
+3. Verify .env.local not in git:
+   git status .env.local
+   # Should show nothing (it's ignored)
+
+4. Check git history for .env.local:
+   git log --all --full-history -- .env.local
+   # Should show nothing
+
+If keys were committed:
+  1. Rotate/delete those keys immediately
+  2. Add to .gitignore
+  3. Use git-filter-branch to remove from history (advanced)
+  4. Create new keys
+
+
+ROTATION & KEY MANAGEMENT
+================================================================================
+
+Schedule:
+  • Quarterly: Rotate production keys
+  • Immediately: If compromised
+  • Per environment: Use different keys
+
+Process:
+  1. Create new key in Firebase Console
+  2. Update .env.local with new key
+  3. Test in development
+  4. Update production environment variables
+  5. Redeploy application
+  6. Delete old key from Firebase Console
+
+Emergency Revocation:
+  1. Delete compromised key immediately
+  2. Create new key
+  3. Update all deployments
+  4. Monitor for abuse
+
+
+CI/CD INTEGRATION
+================================================================================
+
+GitHub Actions Example:
+
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
+        
+        - name: Create .env.local
+          run: |
+            echo "VITE_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}" > .env.local
+            echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> .env.local
+            # Add other variables...
+        
+        - name: Install dependencies
+          run: npm install
+        
+        - name: Build
+          run: npm run build
+
+
+GitLab CI Example:
+
+  build:
+    script:
+      - echo "VITE_FIREBASE_API_KEY=$FIREBASE_API_KEY" > .env.local
+      - echo "VITE_FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" >> .env.local
+      # Add other variables...
+      - npm install
+      - npm run build
+
+
+MONITORING & ALERTS
+================================================================================
+
+Setup alerts for:
+
+1. API key usage anomalies
+   • Unusual request patterns
+   • Requests from unexpected IPs
+   • Rate limiting triggers
+
+2. Failed authentication attempts
+   • Multiple login failures
+   • New geographic locations
+   • Unknown user agents
+
+3. Permission errors
+   • Unauthorized API calls
+   • Access denied events
+   • Invalid credentials
+
+Firebase provides monitoring in:
+  • Firebase Console → Firestore Usage
+  • Google Cloud Console → API & Services → Credentials
+
+
+DOCUMENTATION FOR TEAM
+================================================================================
+
+Share with team:
+  1. Link to this guide
+  2. .env.example file (for reference)
+  3. List of required API keys
+  4. Where to get each key
+  5. When to rotate keys
+  6. Emergency contact info
+
+
+TESTING
+================================================================================
+
+Verify setup:
+
+1. Test development:
+   npm run dev
+   # Check if app starts without errors
+   # Check Firebase functions work
+
+2. Test production build:
+   npm run build
+   # Check build completes
+   # Check no API keys in dist/
+
+3. Verify keys not in source:
+   grep -r "AIzaSy" src/
+   # Should return nothing
+
+4. Verify .env.local not committed:
+   git status
+   # Should not show .env.local
+
+
+MIGRATION CHECKLIST
+================================================================================
+
+Before going live:
+
+☐ Create .env.example with template
+☐ Update utils/firebase.ts to use import.meta.env
+☐ Update vite.config.ts define section
+☐ Update .env.local with actual keys
+☐ Verify .env.local in .gitignore
+☐ Test locally: npm run dev
+☐ Test production build: npm run build
+☐ Verify no keys in dist/ folder
+☐ Check git history for exposed keys
+☐ Setup CI/CD environment variables
+☐ Test CI/CD build
+☐ Deploy to production
+☐ Monitor for errors
+☐ Rotate keys on schedule
+
+
+COMPARING OLD VS NEW
+================================================================================
+
+OLD (INSECURE):
+  // utils/firebase.ts
+  const firebaseConfig = {
+    apiKey: "AIzaSyBeY84OQNYSbhkHzGDkKod3pFTzDIpzOwQ", // ← EXPOSED
+    projectId: "portal-8f01c", // ← EXPOSED
+  };
+
+  Risk:
+    • Keys visible in git history
+    • Keys visible to anyone with code access
+    • Keys in all backups and forks
+    • Hard to rotate keys
+
+NEW (SECURE):
+  // utils/firebase.ts
+  const firebaseConfig = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY, // ← FROM ENV
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID, // ← FROM ENV
+  };
+
+  // .env.local (NOT COMMITTED)
+  VITE_FIREBASE_API_KEY=AIzaSyBeY84OQNYSbhkHzGDkKod3pFTzDIpzOwQ
+
+  Benefits:
+    • Keys never in git
+    • Different keys per environment
+    • Easy to rotate
+    • Can be different on each machine
+    • Works with CI/CD
+
+
+================================================================================
+END OF ENVIRONMENT VARIABLES SETUP GUIDE
+================================================================================
