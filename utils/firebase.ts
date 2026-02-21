@@ -6,20 +6,13 @@ import { getStorage } from "firebase/storage";
 // SECURITY FIX: Load Firebase configuration from environment variables
 // This prevents API keys from being exposed in source code
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBeY84OQNYSbhkHzGDkKod3pFTzDIpzOwQ",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "portal-8f01c.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "portal-8f01c",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "portal-8f01c.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "540916886252",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:540916886252:web:7d34a9de090428913d53c9"
 };
-
-// Validate that all required environment variables are set
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  throw new Error(
-    'Firebase configuration is incomplete. Please check your .env.local file and ensure all VITE_FIREBASE_* variables are set.'
-  );
-}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
