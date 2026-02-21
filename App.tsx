@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
   const [loginUserName, setLoginUserName] = useState('');
+  const [isLoginLoadingComplete, setIsLoginLoadingComplete] = useState(true);
   
   // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -137,12 +138,14 @@ const App: React.FC = () => {
     setLoginUserName(user.name);
     // Show the success message without immediately switching views
     setShowLoginSuccess(true);
-    // Delay switching to dashboard so user sees message first
+    // Mark that loading is in progress
+    setIsLoginLoadingComplete(false);
+    // After 2 seconds, hide loading and show dashboard
     setTimeout(() => {
+      setShowLoginSuccess(false);
       setCurrentView(ViewState.DASHBOARD);
-    }, 19000);
-    // Hide the message after 20 seconds
-    setTimeout(() => setShowLoginSuccess(false), 20000);
+      setIsLoginLoadingComplete(true);
+    }, 2000);
   };
 
   const handleLogout = useCallback(async () => {
@@ -153,6 +156,7 @@ const App: React.FC = () => {
       setShowTimeoutWarning(false);
       setShowLoginSuccess(false);
       setLoginUserName('');
+      setIsLoginLoadingComplete(true);
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -266,8 +270,8 @@ const App: React.FC = () => {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-400">Loading...</div>;
   }
 
-  // If not logged in, show Login page
-  if (!currentUser) {
+  // If not logged in or still loading after login, show Login page
+  if (!currentUser || !isLoginLoadingComplete) {
     return (
       <>
         {/* Login Success Message - Shows over Login page */}
