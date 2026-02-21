@@ -114,7 +114,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               $
             </div>
             <div>
-              <h1 className="font-bold text-slate-900 dark:text-white text-lg leading-tight">Twinhill</h1>
+              <h1 className="font-bold text-slate-900 dark:text-white text-lg leading-tight">Twin Hill</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">Payroll Management</p>
             </div>
           </div>

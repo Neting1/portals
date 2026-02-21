@@ -20,6 +20,8 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [loading, setLoading] = useState(true);
+  const [showLoginSuccess, setShowLoginSuccess] = useState(false);
+  const [loginUserName, setLoginUserName] = useState('');
   
   // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -131,9 +133,16 @@ const App: React.FC = () => {
 
   // Auth Handlers
   const handleLogin = (user: User) => {
-    // onAuthStateChanged handles the state update
-    // We can force a view reset here
-    setCurrentView(ViewState.DASHBOARD);
+    // Store the user name for the loading screen
+    setLoginUserName(user.name);
+    // Show the success message without immediately switching views
+    setShowLoginSuccess(true);
+    // Delay switching to dashboard so user sees message first
+    setTimeout(() => {
+      setCurrentView(ViewState.DASHBOARD);
+    }, 19000);
+    // Hide the message after 20 seconds
+    setTimeout(() => setShowLoginSuccess(false), 20000);
   };
 
   const handleLogout = useCallback(async () => {
@@ -142,6 +151,8 @@ const App: React.FC = () => {
       setCurrentUser(null);
       setCurrentView(ViewState.DASHBOARD);
       setShowTimeoutWarning(false);
+      setShowLoginSuccess(false);
+      setLoginUserName('');
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -257,7 +268,51 @@ const App: React.FC = () => {
 
   // If not logged in, show Login page
   if (!currentUser) {
-    return <Login onLogin={handleLogin} isDarkMode={isDarkMode} toggleTheme={toggleTheme} />;
+    return (
+      <>
+        {/* Login Success Message - Shows over Login page */}
+        {showLoginSuccess && (
+          <div className="fixed inset-0 z-[100] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center animate-in fade-in duration-300">
+            {/* Animated background blobs */}
+            <div className="absolute top-20 right-20 w-72 h-72 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
+            <div className="absolute -bottom-8 left-20 w-72 h-72 bg-emerald-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
+            
+            {/* Loading Content */}
+            <div className="relative z-10 text-center flex flex-col items-center gap-8">
+              {/* Logo/Icon */}
+              <div className="flex items-center justify-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-2xl">
+                  <svg className="w-8 h-8 text-white animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+              </div>
+              
+              {/* Welcome Text */}
+              <div className="space-y-3">
+                <h1 className="text-5xl md:text-6xl font-bold text-white tracking-tight">
+                  Welcome, <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">{loginUserName}!</span>
+                </h1>
+                <p className="text-xl text-slate-300">Preparing everything for <span className="font-semibold text-emerald-400">{loginUserName}</span>...</p>
+              </div>
+              
+              {/* Loading Bar */}
+              <div className="w-64 h-1 bg-slate-700 rounded-full overflow-hidden mt-8">
+                <div className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full animate-pulse" style={{animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'}} />
+              </div>
+              
+              {/* Loading Dots */}
+              <div className="flex justify-center gap-2 mt-6">
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0s'}} />
+                <div className="w-3 h-3 bg-emerald-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}} />
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}} />
+              </div>
+            </div>
+          </div>
+        )}
+        <Login onLogin={handleLogin} isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
+      </>
+    );
   }
 
   // If logged in, show main app layout
@@ -265,16 +320,17 @@ const App: React.FC = () => {
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 relative transition-colors duration-200">
       
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-40 flex items-center justify-between px-4">
-        <div className="flex items-center gap-2">
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-40 flex items-center justify-center px-4">
+        <div className="flex items-center gap-2 justify-center">
            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
              $
            </div>
-           <span className="font-bold text-lg text-slate-900 dark:text-white">Twinhill</span>
+           <span className="font-bold text-slate-900 dark:text-white hidden sm:block">Twin Hill Payroll Portal</span>
+           <span className="font-bold text-sm text-slate-900 dark:text-white sm:hidden">Twin Hill</span>
         </div>
         <button 
           onClick={() => setIsMobileMenuOpen(true)}
-          className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          className="absolute right-4 p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
         >
           <Menu size={24} />
         </button>

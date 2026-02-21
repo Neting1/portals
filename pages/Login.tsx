@@ -336,7 +336,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
 
   const getHeading = () => {
       switch(view) {
-          case 'login': return 'Good to see you again';
+          case 'login': return 'Welcome Back';
           case 'signup': return 'Create your account';
           case 'forgot_password': return 'Password Recovery';
           case 'verify_email': return 'Verify your email';
@@ -347,32 +347,35 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
     <div className="min-h-screen bg-[#fffcf5] dark:bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden font-sans text-slate-800 dark:text-slate-100 p-4 transition-colors duration-200">
       
       {/* Decorative Blobs */}
+      
+      {/* Decorative Blobs */}
       <div className="absolute top-[15%] right-[10%] w-72 h-72 bg-gradient-to-br from-orange-400 to-red-400 rounded-[3rem] blur-2xl opacity-90 -z-10 transform translate-x-1/4 rotate-12 dark:opacity-20" />
       <div className="absolute bottom-[15%] left-[10%] w-48 h-48 bg-gradient-to-tr from-orange-300 to-yellow-400 rounded-full blur-2xl opacity-80 -z-10 transform -translate-x-1/4 dark:opacity-20" />
-      
-      {/* Top Controls */}
-      <div className="absolute top-6 right-6 z-20">
-         <button
-            onClick={toggleTheme}
-            className="p-3 bg-white dark:bg-slate-800 rounded-full shadow-lg dark:shadow-none text-slate-600 dark:text-slate-300 hover:scale-105 transition-transform"
-            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-         >
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-         </button>
-      </div>
 
       {/* Header Logo */}
-      <div className="mb-6 flex items-center gap-2 animate-fade-in-down">
+      <div className="mb-6 flex items-center gap-2 animate-fade-in-down justify-center">
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-yellow-400 flex items-center justify-center text-white font-bold shadow-sm">
           <div className="w-3 h-3 bg-white rounded-full opacity-90" />
         </div>
-        <span className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Twinhill</span>
+        <span className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight text-center">Twin Hill Payroll Portal</span>
       </div>
 
       {/* Main Heading */}
-      <h1 className="text-3xl md:text-4xl font-bold text-slate-800 dark:text-slate-100 mb-10 text-center tracking-tight animate-fade-in-down delay-75">
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 dark:text-slate-100 mb-6 text-center tracking-tight animate-fade-in-down delay-75 animate-dance">
         {getHeading()}
       </h1>
+
+      {/* Developer Info - Compact */}
+      <div className="mb-6 flex items-center justify-center gap-4 text-xs animate-fade-in-up delay-75">
+        <button
+          onClick={toggleTheme}
+          className="p-2 bg-white dark:bg-slate-800 rounded-full shadow-lg dark:shadow-none text-slate-600 dark:text-slate-300 hover:scale-105 transition-transform"
+          title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        >
+          {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
+        <p className="text-slate-500 dark:text-slate-400 font-medium">Developed by <span className="text-slate-700 dark:text-slate-300 font-semibold">Ing. Oduro Thompson</span></p>
+      </div>
 
       {/* Card */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-none p-8 md:p-10 w-full max-w-[480px] relative z-10 animate-fade-in-up delay-100 border border-slate-50 dark:border-slate-800">
@@ -624,7 +627,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, toggleTheme }) => {
       
       {/* Footer */}
       <div className="mt-8 text-center text-xs text-slate-400/60 dark:text-slate-600 font-medium">
-         &copy; 2025 Twinhill. All rights reserved.
+         &copy; 2025 Twin Hill Payroll Portal. All rights reserved.
       </div>
     </div>
   );
