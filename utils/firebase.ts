@@ -3,15 +3,32 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// Your web app's Firebase configuration
+// SECURITY FIX: Firebase configuration from environment variables
+// Never hardcode API keys in source code
 const firebaseConfig = {
-  apiKey: "AIzaSyBeY84OQNYSbhkHzGDkKod3pFTzDIpzOwQ",
-  authDomain: "portal-8f01c.firebaseapp.com",
-  projectId: "portal-8f01c",
-  storageBucket: "portal-8f01c.firebasestorage.app",
-  messagingSenderId: "540916886252",
-  appId: "1:540916886252:web:7d34a9de090428913d53c9"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
+
+// Validate that all required environment variables are set
+const requiredEnvVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID'
+];
+
+for (const envVar of requiredEnvVars) {
+  if (!import.meta.env[envVar]) {
+    throw new Error(`Missing required environment variable: ${envVar}. Please check your .env.local file.`);
+  }
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
